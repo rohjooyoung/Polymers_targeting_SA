@@ -1,0 +1,111 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import confusion_matrix, classification_report, precision_recall_curve, auc
+import matplotlib.pyplot as plt
+from sklearn.metrics import PrecisionRecallDisplay
+from sklearn.neural_network import MLPClassifier
+
+data = pd.read_excel('synthetic_polymer_gram-positive_ratio_limit.xlsx')
+X = data.drop(columns=['MIC_64', 'MIC_128'])
+Y = data['MIC_64']
+
+#data = pd.read_excel('antifungal_dataset_simple.xlsx')
+#X = data.drop(columns=['MIC_64'])
+#Y = data['MIC_64']
+print(X)
+print(Y)
+
+# Standardize data
+sc = StandardScaler()
+X_scaled = sc.fit_transform(X)
+X_scaled = pd.DataFrame(X_scaled, columns = X.columns, index = X.index.values.tolist())
+# Split data
+X_train, X_test, Y_train, Y_test = train_test_split(X_scaled, Y, test_size=0.3, random_state=0, stratify= Y)
+
+# Define classifiers and their parameters
+classifiers = {
+    'RandomForestClassifier_recall': {
+        'model': RandomForestClassifier(class_weight='balanced_subsample', criterion='entropy',
+                       max_depth=24, max_features='log2', min_samples_leaf=3,
+                       min_samples_split=3, n_estimators=287, random_state=0),
+        'X_train': X_train,
+        'X_test': X_test
+    },
+    'DecisionTreeClassifier_recall':{
+        'model': DecisionTreeClassifier(random_state=0, min_samples_leaf=14, max_features='log2', max_depth=25, criterion='log_loss', class_weight='balanced',  splitter='best'),
+        'X_train': X_train,
+        'X_test': X_test
+    },
+    'SVC_recall': {
+        'model': SVC(kernel='linear', gamma=0.9003469850392294, class_weight='balanced', C=82.65792638826565, random_state=0, probability=True),
+        'X_train': X_train,
+        'X_test': X_test
+    },
+    'MLP_recall': {
+        'model': MLPClassifier(activation='tanh', alpha=0.0488373855242972, hidden_layer_sizes=2, learning_rate='adaptive', max_iter=469, random_state=0, solver='adam'),
+        'X_train': X_train,
+        'X_test': X_test
+    },
+    'LogisticRegression_recall': {
+        'model': LogisticRegression(random_state=0, max_iter=308, class_weight='balanced', C=51.53580531667432),
+        'X_train': X_train,
+        'X_test': X_test
+    },
+    'GaussianNB_recall': {
+        'model': GaussianNB(var_smoothing=0.0008411688463718949),
+        'X_train': X_train,
+        'X_test': X_test
+    },
+    'KNeighborsClassifier_recall': {
+        'model': KNeighborsClassifier(weights='distance', p=1, n_neighbors=4, leaf_size=9, algorithm='brute'),
+        'X_train': X_train,
+        'X_test': X_test
+    },
+}
+
+# Train and evaluate classifiers
+for clf_name, clf_data in classifiers.items():
+    model = clf_data['model']
+    model.fit(clf_data['X_train'], Y_train.values.ravel())
+    Y_pred = model.predict(clf_data['X_test'])
+    cm = confusion_matrix(Y_test, Y_pred)
+    TN, FP, FN, TP = cm.ravel()
+    print("True Positive: ", TP)
+    print("True Negative: ", TN)
+    print("False Positive: ", FP)
+    print("False Negative: ", FN)
+    report = classification_report(Y_test, Y_pred, target_names=["Bad", "Good"])
+    print(f"{clf_name} Classification Report:")
+    print(report)
+    # Calculate precision-recall curve and AUC
+    if hasattr(model, 'predict_proba'):
+        y_prob = model.predict_proba(clf_data['X_test'])[:, 1]
+        precision, recall, _ = precision_recall_curve(Y_test, y_prob)
+        pr_auc = auc(recall, precision)
+        plt.rcParams['font.family'] = 'Times New Roman'
+        # Plot precision-recall curve
+        plt.figure()
+        plt.plot(recall, precision, marker='o', label=f'{clf_name} (PR AUC = {pr_auc:.2f})')
+        plt.xlabel('Recall', fontsize=18)
+        plt.ylabel('Precision', fontsize=18)
+        plt.legend()
+        plt.show()
+        display = PrecisionRecallDisplay.from_estimator(model, X_test, Y_test, name=f"{clf_name}")
+        _ = display.ax_.set_title("")
+        _ = display.ax_.set_ylabel("Precision (Positive label: 1)", fontsize=14)
+        _ = display.ax_.set_xlabel("Recall (Positive label: 1)", fontsize=14)
+        plt.legend(fontsize=12)
+        plt.xticks(fontsize=14)
+        plt.yticks(fontsize=14)
+        print(model)
+        print(f"PR AUC: {pr_auc}")
+        
+        plt.show()
+
