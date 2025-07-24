@@ -1,0 +1,172 @@
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.svm import SVC
+from sklearn.neural_network import MLPClassifier
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.naive_bayes import GaussianNB
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.model_selection import RandomizedSearchCV
+from scipy.stats import uniform as sp_randFloat
+from scipy.stats import randint as sp_randInt
+
+# Load data
+data = pd.read_excel('synthetic_polymer_gram-positive_ratio_limit.xlsx')
+X = data.drop(columns=['MIC_64', 'MIC_128'])
+Y = data['MIC_64']
+
+# Standardize data
+sc = StandardScaler()
+X_scaled = sc.fit_transform(X)
+X_scaled = pd.DataFrame(X_scaled, columns = X.columns, index = X.index.values.tolist())
+X = X_scaled.to_numpy()
+
+# Split data
+X_train, X_test, Y_train, Y_test = train_test_split(X_scaled, Y, test_size=0.3, random_state=0, stratify=Y)
+
+# Define classifiers and their parameters
+parameters = {'n_estimators': sp_randInt(20,450),
+              'min_samples_split': sp_randInt(2,10),
+              'min_samples_leaf': sp_randInt(2,10),
+              'class_weight': ['balanced', 'balanced_subsample', 'None'],
+              'max_features': ['log2', 'sqrt'],
+              'max_depth': sp_randInt(3,30) or None,
+              'criterion': ['entropy', 'gini', 'log_loss']
+              }
+print("Random Forest Classifier")
+
+for run in range(1):
+    random_search = RandomizedSearchCV(estimator=RandomForestClassifier(random_state=0, bootstrap=True),
+                                   param_distributions=parameters,
+                                   scoring ="recall",
+                                   cv = 5,
+                                   n_iter= 100,
+                                   n_jobs=-1)
+
+    random_search.fit(X_train, Y_train)
+    best_recall = random_search.best_score_
+    best_parameters = random_search.best_params_
+    print(best_recall)
+    print(best_parameters)
+
+
+print("\n")
+
+print("SVC")
+for run in range(1):
+    parameters = {'gamma': sp_randFloat(0.0001, 1),
+                      'C': sp_randFloat(0.01, 100),
+                      'class_weight': ['None', 'balanced'],
+                      'kernel': ['rbf', 'sigmoid', 'linear', 'poly']}
+    random_search = RandomizedSearchCV(estimator= SVC(random_state=0, probability=True),
+                                   param_distributions=parameters,
+                                   scoring = 'recall',
+                                   cv = 5,
+                                   n_iter= 100,
+                                   n_jobs= -1)
+    random_search.fit(X_train, Y_train)
+    best_recall = random_search.best_score_
+    best_parameters = random_search.best_params_
+    print(best_recall)
+    print(best_parameters)
+print("\n")
+
+print("Logistic Regression")
+for run in range(1):
+    parameters = {'C': sp_randFloat(0.0001, 100),
+                  'max_iter': sp_randInt(2,500),
+                  'class_weight': ['None', 'balanced']}
+    random_search = RandomizedSearchCV(estimator= LogisticRegression(random_state=0),
+                               param_distributions=parameters,
+                               scoring = 'recall',
+                               cv = 5,
+                               n_iter= 100,
+                               n_jobs=-1)
+    random_search.fit(X_train, Y_train)
+    best_recall = random_search.best_score_
+    best_parameters = random_search.best_params_
+    print(best_recall)
+    print(best_parameters)
+print("\n")
+
+print("MLP classifier")
+for run in range(1):
+    parameters = {'alpha': sp_randFloat(0.0001, 0.1),
+                  'max_iter': sp_randInt(200,500),
+                  'learning_rate': ['constant', 'adaptive'],
+                  'activation': ['logistic', 'tanh', 'relu'],
+                  'hidden_layer_sizes': sp_randInt(1,150),
+                  'solver': ['lbfgs', 'sgd', 'adam']}
+    random_search = RandomizedSearchCV(estimator= MLPClassifier(random_state=0),
+                               param_distributions=parameters,
+                               scoring = 'recall',
+                               cv = 5,
+                               n_iter=100,
+                               n_jobs=-1)
+    random_search.fit(X_train, Y_train)
+    best_recall = random_search.best_score_
+    best_parameters = random_search.best_params_
+    print(best_recall)
+    print(best_parameters)
+
+print("\n")
+
+print("Decision Tree Classifier")
+for run in range(1):
+    parameters = {'min_samples_leaf': sp_randInt(2,15),
+                  'max_depth': sp_randInt(2,30),
+                  'max_features': ['log2', 'auto', 'sqrt'],
+                  'criterion': ['entropy', 'gini', 'log_loss'],
+                  'class_weight': ['None', 'balanced']}
+
+    random_search= RandomizedSearchCV(estimator= DecisionTreeClassifier(random_state=0, splitter='best'),
+                               param_distributions=parameters,
+                               scoring = 'recall',
+                               cv = 5,
+                               n_iter= 100,
+                               n_jobs=-1)
+    random_search.fit(X_train, Y_train)
+    best_recall = random_search.best_score_
+    best_parameters = random_search.best_params_
+    print(best_recall)
+    print(best_parameters)
+
+print("\n")
+print("Gaussian Naive Bayes")
+for run in range(1):
+    parameters = {'var_smoothing': sp_randFloat(1e-9, 1e-3)}
+    random_search = RandomizedSearchCV(estimator=GaussianNB(),
+                               param_distributions=parameters,
+                               scoring='recall',
+                               cv=5,
+                               n_iter=100,
+                               n_jobs=-1)
+
+    random_search.fit(X_train, Y_train)
+    best_recall = random_search.best_score_
+    best_parameters = random_search.best_params_
+    print(best_recall)
+    print(best_parameters)
+
+print("\n")
+print("KNeighbors Classifier")
+
+for run in range(1):
+    parameters ={'leaf_size': sp_randInt(1,50),
+                 'n_neighbors': sp_randInt(1,10),
+                 'p': sp_randInt(1,3),
+                 'weights': ['uniform', 'distance'],
+                 'algorithm': ['kd_tree', 'auto', 'brute', 'ball_tree']}
+    random_search = RandomizedSearchCV(KNeighborsClassifier(),
+                               param_distributions=parameters,
+                               scoring = 'recall',
+                               cv = 5,
+                               n_iter=100,
+                               n_jobs=-1)
+    random_search.fit(X_train, Y_train)
+    best_recall = random_search.best_score_
+    best_parameters = random_search.best_params_
+    print(best_recall)
+    print(best_parameters)
