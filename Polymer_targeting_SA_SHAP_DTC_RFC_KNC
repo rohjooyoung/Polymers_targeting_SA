@@ -346,9 +346,9 @@ plt.subplots_adjust(hspace=0.4, wspace=0.3)
 fig.text(0.03, 0.5, 'RFC S.aureus SHAP values Class0: MIC>64', ha='center', va='center', rotation='vertical', fontsize=20)
 plt.show()
 
-# KNC
+# KNN
 
-knc = KNeighborsClassifier(algorithm='brute', leaf_size=9, n_neighbors=4, p=1,
+knn = KNeighborsClassifier(algorithm='brute', leaf_size=9, n_neighbors=4, p=1,
                      weights='distance')
 
 
@@ -373,8 +373,8 @@ print(pearson)
 # Split data
 X_train, X_test, Y_train, Y_test = train_test_split(X_scaled, Y, test_size=0.3, random_state=0, stratify= Y)
 
-knc = knc.fit(X_train,Y_train.values.ravel())
-Y_pred = knc.predict(X_test)
+knn = knn.fit(X_train,Y_train.values.ravel())
+Y_pred = knn.predict(X_test)
 cm = confusion_matrix(Y_test, Y_pred)
 TN, FP, FN, TP = cm.ravel()
 print("True Positive: ", TP)
@@ -386,7 +386,7 @@ report = classification_report(Y_test, Y_pred, target_names=["Bad", "Good"])
 shap.initjs()
 
 print(X.columns)
-explainer = shap.KernelExplainer(knc.predict_proba, X_scaled)
+explainer = shap.KernelExplainer(knn.predict_proba, X_scaled)
 shap_values = explainer.shap_values(X_scaled, check_additivity=False)
 print(shap_values)
 
@@ -435,8 +435,8 @@ X_DP = X['DP']
 Y_cLogP_predicted = shap_values[:,index_of_cLogP_predicted][:,0]
 X_cLogP_predicted = X['cLogP_predicted']
 
-Y_aromatic_KNC = shap_values[:,index_of_aromatic_KNC][:,0]
-X_aromatic_KNC = X['aromatic']
+Y_aromatic_KNN = shap_values[:,index_of_aromatic_KNC][:,0]
+X_aromatic_KNN = X['aromatic']
 
 Y_net_charge = shap_values[:,index_of_net_charge][:,0]
 X_net_charge = X['net_charge']
@@ -509,7 +509,7 @@ axes[1, 2].set_xticks(np.arange(-4, 2.1, 1))
 # set overall title and adjust subplot spacing
 plt.subplots_adjust(hspace=0.4, wspace=0.3)
 #fig.text(0.5, 0.03, 'feature values', ha'center', va='center', fontsize=14)
-fig.text(0.03, 0.5, 'KNC SHAP values Class0: MIC>64', ha='center', va='center', rotation='vertical', fontsize=20)
+fig.text(0.03, 0.5, 'KNN SHAP values Class0: MIC>64', ha='center', va='center', rotation='vertical', fontsize=20)
 plt.show()
 
 fig, axes = plt.subplots(nrows=1, ncols=3, figsize = (15,5))
@@ -527,14 +527,15 @@ axes[1].axhline(y=0, color='k', linestyle='dotted')
 axes[1].tick_params(axis='y', labelsize=16)
 axes[1].tick_params(axis='x', labelsize=16)
 
-axes[2].scatter(X_aromatic_KNC, Y_aromatic_KNC,color = 'blue', s=10)
-axes[2].set_xlabel('aromatic_KNC',fontsize=15)
+axes[2].scatter(X_aromatic_KNN, Y_aromatic_KNN,color = 'blue', s=10)
+axes[2].set_xlabel('aromatic_KNN',fontsize=15)
 axes[2].axhline(y=0, color='k', linestyle='dotted')
 axes[2].tick_params(axis='y', labelsize=16)
 axes[2].tick_params(axis='x', labelsize=16)
 
 #fig.text(0.5, 0.03, 'feature values', ha'center', va='center', fontsize=14)
-fig.text(0.03, 0.5, 'Aromatic Feature Comparison:\nDTC, RFC and KNC\nSHAP values Class0: MIC>64', ha='center', va='center', rotation='vertical', fontsize=20)
+fig.text(0.05, 0.5, 'Aromatic Feature Comparison:\nDTC, RFC and KNN\nSHAP values Class0: MIC>64', ha='center', va='center', rotation='vertical', fontsize=20)
 plt.subplots_adjust(hspace=0.3, wspace=0.3)
 plt.autoscale()
 plt.show()
+
