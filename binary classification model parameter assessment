@@ -48,7 +48,7 @@ classifiers = {
         'X_train': X_train,
         'X_test': X_test
     },
-    'KNC_recall': {
+    'KNN_recall': {
         'model': KNeighborsClassifier(algorithm='brute', leaf_size=9, n_neighbors=4, p=1,
                      weights='distance'),
         'X_train': X_train,
