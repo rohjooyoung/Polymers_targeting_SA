@@ -5,6 +5,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import AdaBoostClassifier
 from sklearn.naive_bayes import GaussianNB
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import confusion_matrix, classification_report, precision_recall_curve, auc
@@ -31,40 +32,25 @@ X_train, X_test, Y_train, Y_test = train_test_split(X_scaled, Y, test_size=0.3, 
 
 # Define classifiers and their parameters
 classifiers = {
-    'RandomForestClassifier_recall': {
-        'model': RandomForestClassifier(class_weight='balanced_subsample', criterion='entropy',
-                       max_depth=24, max_features='log2', min_samples_leaf=3,
-                       min_samples_split=3, n_estimators=287, random_state=0),
+    'RFC_F1':{
+        'model': RandomForestClassifier(class_weight='balanced_subsample', criterion='log_loss', max_depth=9, max_features='log2', min_samples_leaf=4, min_samples_split=7, n_estimators=59, bootstrap=True, random_state=0),
         'X_train': X_train,
         'X_test': X_test
     },
-    'DecisionTreeClassifier_recall':{
-        'model': DecisionTreeClassifier(random_state=0, min_samples_leaf=14, max_features='log2', max_depth=25, criterion='log_loss', class_weight='balanced',  splitter='best'),
+    'RFC_recall':{
+        'model': RandomForestClassifier(class_weight='balanced_subsample', criterion='entropy',  max_depth=24, max_features='log2', min_samples_leaf=3, min_samples_split=3, n_estimators=287, random_state=0),
         'X_train': X_train,
         'X_test': X_test
     },
-    'SVC_recall': {
-        'model': SVC(kernel='linear', gamma=0.9003469850392294, class_weight='balanced', C=82.65792638826565, random_state=0, probability=True),
+    'DTC_F1':{
+        'model': DecisionTreeClassifier(random_state=0, min_samples_leaf=3, max_features='log2',
+                        max_depth=27, criterion='entropy', class_weight='balanced', splitter='best'),
         'X_train': X_train,
         'X_test': X_test
     },
-    'MLP_recall': {
-        'model': MLPClassifier(activation='tanh', alpha=0.0488373855242972, hidden_layer_sizes=2, learning_rate='adaptive', max_iter=469, random_state=0, solver='adam'),
-        'X_train': X_train,
-        'X_test': X_test
-    },
-    'LogisticRegression_recall': {
-        'model': LogisticRegression(random_state=0, max_iter=308, class_weight='balanced', C=51.53580531667432),
-        'X_train': X_train,
-        'X_test': X_test
-    },
-    'GaussianNB_recall': {
-        'model': GaussianNB(var_smoothing=0.0008411688463718949),
-        'X_train': X_train,
-        'X_test': X_test
-    },
-    'KNeighborsClassifier_recall': {
-        'model': KNeighborsClassifier(weights='distance', p=1, n_neighbors=4, leaf_size=9, algorithm='brute'),
+    'KNC_recall': {
+        'model': KNeighborsClassifier(algorithm='brute', leaf_size=9, n_neighbors=4, p=1,
+                     weights='distance'),
         'X_train': X_train,
         'X_test': X_test
     },
@@ -93,9 +79,9 @@ for clf_name, clf_data in classifiers.items():
         # Plot precision-recall curve
         plt.figure()
         plt.plot(recall, precision, marker='o', label=f'{clf_name} (PR AUC = {pr_auc:.2f})')
-        plt.xlabel('Recall', fontsize=18)
-        plt.ylabel('Precision', fontsize=18)
-        plt.legend()
+        plt.xlabel('Recall (Positive label: 1)', fontsize=14)
+        plt.ylabel('Precision (Positive label: 1)', fontsize=14)
+        plt.legend(fontsize = 12)
         plt.show()
         display = PrecisionRecallDisplay.from_estimator(model, X_test, Y_test, name=f"{clf_name}")
         _ = display.ax_.set_title("")
@@ -106,6 +92,6 @@ for clf_name, clf_data in classifiers.items():
         plt.yticks(fontsize=14)
         print(model)
         print(f"PR AUC: {pr_auc}")
-        
+
         plt.show()
 
