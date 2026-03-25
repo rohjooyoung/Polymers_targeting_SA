@@ -1,0 +1,369 @@
+import numpy as np
+from matplotlib.pyplot import autoscale
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+import pandas as pd
+from sklearn.metrics import confusion_matrix, classification_report
+import matplotlib.pyplot as plt
+import shap
+from matplotlib.ticker import FormatStrFormatter
+from sklearn.svm import SVC
+from sklearn.neighbors import KNeighborsClassifier
+
+#SVC_Recall
+
+knn = KNeighborsClassifier(weights='uniform', p=1, n_neighbors=3, leaf_size=11, algorithm='ball_tree')
+
+
+data = pd.read_excel('synthetic_polymer_gram-positive_ratio_limit.xlsx')
+X = data.drop(columns=['MIC_64', 'MIC_128'])
+Y = data['MIC_64']
+
+print(X)
+print(Y)
+
+sc = StandardScaler()
+X_scaled = sc.fit_transform(X)
+X_scaled = pd.DataFrame(X_scaled, columns = X.columns, index = X.index.values.tolist())
+
+# Standardize data
+sc = StandardScaler()
+pearson = X_scaled.corr("pearson")
+
+pd.set_option('display.max_columns', None)
+print(pearson)
+
+
+
+# Split data
+X_train, X_test, Y_train, Y_test = train_test_split(X_scaled, Y, test_size=0.3, random_state=0, stratify= Y)
+
+knn = knn.fit(X_train,Y_train.values.ravel())
+Y_pred = knn.predict(X_test)
+cm = confusion_matrix(Y_test, Y_pred)
+TN, FP, FN, TP = cm.ravel()
+print("True Positive: ", TP)
+print("True Negative: ", TN)
+print("False Positive: ", FP)
+print("False Negative: ", FN)
+report = classification_report(Y_test, Y_pred, target_names=["Bad", "Good"])
+
+shap.initjs()
+
+print(X.columns)
+explainer = shap.KernelExplainer(knn.predict_proba, X_scaled)
+shap_values = explainer.shap_values(X_scaled, check_additivity=False)
+print(shap_values)
+
+
+mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
+mean_shap_values_df_bad = pd.DataFrame({'Feature': X.columns, 'MeanAbsSHAP_Bad': mean_abs_shap_values[:,0]})
+
+# Sort values in descending order
+mean_shap_values_df_bad = mean_shap_values_df_bad.sort_values(by='MeanAbsSHAP_Bad', ascending=False)
+
+print(f"These are the mean SHAP values (Class 0): {mean_shap_values_df_bad}.")
+
+# Create bar plot
+plt.rcParams['font.family'] = 'Times New Roman'
+plt.figure()
+plt.bar(mean_shap_values_df_bad['Feature'], mean_shap_values_df_bad['MeanAbsSHAP_Bad'], color='red')
+plt.ylabel('Mean |SHAP value| Gram-Positive KNN')
+plt.yticks()
+plt.xticks(rotation = 20, ha = "right")
+plt.gca().yaxis.set_major_formatter(FormatStrFormatter('%.3f'))
+ax = plt.gca()
+ax.spines['top'].set_edgecolor('black')
+ax.spines['top'].set_linewidth(4)
+ax.spines['right'].set_edgecolor('black')
+ax.spines['right'].set_linewidth(4)
+ax.spines['bottom'].set_edgecolor('black')
+ax.spines['bottom'].set_linewidth(4)
+ax.spines['left'].set_edgecolor('black')
+ax.spines['left'].set_linewidth(4)
+# Adjust layout and show plot
+plt.autoscale()
+plt.show()
+
+
+index_of_hydrophobic = data.columns.get_loc('hydrophobic_composition')
+index_of_cationic = data.columns.get_loc('cationic_composition')
+index_of_ratio = data.columns.get_loc('hydrophobic_to_cationic_ratio')
+index_of_net_charge = data.columns.get_loc('net_charge')
+index_of_aromatic_KNN = data.columns.get_loc('aromatic')
+index_of_cLogP_predicted = data.columns.get_loc('cLogP_predicted')
+index_of_DP = data.columns.get_loc('DP')
+
+Y_DP = shap_values[:,index_of_DP][:,0]
+X_DP = X['DP']
+
+Y_cLogP_predicted = shap_values[:,index_of_cLogP_predicted][:,0]
+X_cLogP_predicted = X['cLogP_predicted']
+
+Y_aromatic_KNN = shap_values[:,index_of_aromatic_KNN][:,0]
+X_aromatic_KNN = X['aromatic']
+
+Y_net_charge = shap_values[:,index_of_net_charge][:,0]
+X_net_charge = X['net_charge']
+
+Y_ratio = shap_values[:,index_of_ratio][:,0]
+X_ratio = X['hydrophobic_to_cationic_ratio']
+
+Y_hydrophobic = shap_values[:,index_of_hydrophobic][:,0]
+X_hydrophobic = X['hydrophobic_composition']
+
+Y_cationic = shap_values[:,index_of_cationic][:,0]
+X_cationic = X['cationic_composition']
+
+fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 10))
+# plot on each of the subplots
+
+axes[0, 0].scatter(X_net_charge, Y_net_charge,color = 'xkcd:royal blue', s=10)
+axes[0, 0].set_xlabel('net_charge',fontsize=14)
+axes[0, 0].axhline(y=0, color='k', linestyle='dotted')
+axes[0, 0].axvline(x=30, color='k', linestyle='dotted')
+axes[0, 0].axvline(x=0, color='k', linestyle='dotted')
+axes[0, 0].tick_params(axis='y', labelsize=14)
+axes[0, 0].tick_params(axis='x', labelsize=14)
+axes[0, 0].set_xticks(np.arange(0, 100.1, 20))
+
+axes[0, 1].scatter(X_DP, Y_DP, color = 'xkcd:royal blue', s=10)
+axes[0, 1].set_xlabel('DP',fontsize=14)
+axes[0, 1].axhline(y=0, color='k', linestyle='dotted')
+axes[0, 1].axvline(x=40, color='k', linestyle='dotted')
+axes[0, 1].axvline(x=20, color='k', linestyle='dotted')
+axes[0, 1].tick_params(axis='y', labelsize=14)
+axes[0, 1].tick_params(axis='x', labelsize=14)
+axes[0, 1].set_xticks(np.arange(20, 120.1, 20))
+
+axes[0, 2].scatter(X_cationic, Y_cationic,color = 'xkcd:royal blue', s=10)
+axes[0, 2].set_xlabel('cationic_composition',fontsize=14)
+axes[0, 2].axhline(y=0, color='k', linestyle='dotted')
+axes[0, 2].axvline(x=0.45, color='k', linestyle='dotted')
+axes[0, 2].tick_params(axis='y', labelsize=14)
+axes[0, 2].tick_params(axis='x', labelsize=14)
+axes[0, 2].set_xticks(np.arange(0, 1.01, 0.2))
+
+axes[1, 0].scatter(X_ratio, Y_ratio,color = 'xkcd:royal blue', s=10)
+axes[1, 0].set_xlabel('hydrophobic_to_cationic_ratio',fontsize=14)
+axes[1, 0].axhline(y=0, color='k', linestyle='dotted')
+axes[1, 0].axvline(x=0.6, color='k', linestyle='dotted')
+axes[1, 0].axvline(x=1, color='k', linestyle='dotted')
+axes[1, 0].set_xticks(np.arange(0, 1.01, 0.2))
+axes[1, 0].tick_params(axis='y', labelsize=14)
+axes[1, 0].tick_params(axis='x', labelsize=14)
+
+axes[1, 1].scatter(X_hydrophobic, Y_hydrophobic, color = 'xkcd:royal blue', s=10)
+axes[1, 1].set_xlabel('hydrophobic_composition',fontsize=14)
+axes[1, 1].axhline(y=0, color='k', linestyle='dotted')
+axes[1, 1].axvline(x=0.35, color='k', linestyle='dotted')
+axes[1, 1].axvline(x=0.5, color='k', linestyle='dotted')
+axes[1, 1].tick_params(axis='y', labelsize=14)
+axes[1, 1].tick_params(axis='x', labelsize=14)
+axes[1, 1].set_xticks(np.arange(0, 0.51, 0.1))
+
+axes[1, 2].scatter(X_cLogP_predicted, Y_cLogP_predicted,color = 'xkcd:royal blue', s=10)
+axes[1, 2].set_xlabel('cLogP_predicted',fontsize=14)
+axes[1, 2].axhline(y=0, color='k', linestyle='dotted')
+axes[1, 2].axvline(x=0, color='k', linestyle='dotted')
+axes[1, 2].axvline(x=1.5, color='k', linestyle='dotted')
+axes[1, 2].tick_params(axis='y', labelsize=14)
+axes[1, 2].tick_params(axis='x', labelsize=14)
+axes[1, 2].set_xticks(np.arange(-4, 2.1, 1))
+
+# set overall title and adjust subplot spacing
+plt.subplots_adjust(hspace=0.4, wspace=0.3)
+#fig.text(0.5, 0.03, 'feature values', ha'center', va='center', fontsize=14)
+fig.text(0.03, 0.5, 'KNN_Recall_LOOCV SHAP values Class0: MIC>64', ha='center', va='center', rotation='vertical', fontsize=15)
+plt.show()
+
+
+
+#SVC_Recall
+
+svc =SVC(kernel='poly', gamma=0.2912379372634608, class_weight='balanced', C=45.11565517101993, random_state=0, probability=True)
+
+
+data = pd.read_excel('synthetic_polymer_gram-positive_ratio_limit.xlsx')
+X = data.drop(columns=['MIC_64', 'MIC_128'])
+Y = data['MIC_64']
+
+print(X)
+print(Y)
+
+sc = StandardScaler()
+X_scaled = sc.fit_transform(X)
+X_scaled = pd.DataFrame(X_scaled, columns = X.columns, index = X.index.values.tolist())
+
+# Standardize data
+sc = StandardScaler()
+pearson = X_scaled.corr("pearson")
+
+pd.set_option('display.max_columns', None)
+print(pearson)
+
+
+
+# Split data
+X_train, X_test, Y_train, Y_test = train_test_split(X_scaled, Y, test_size=0.3, random_state=0, stratify= Y)
+
+svc = svc.fit(X_train,Y_train.values.ravel())
+Y_pred = svc.predict(X_test)
+cm = confusion_matrix(Y_test, Y_pred)
+TN, FP, FN, TP = cm.ravel()
+print("True Positive: ", TP)
+print("True Negative: ", TN)
+print("False Positive: ", FP)
+print("False Negative: ", FN)
+report = classification_report(Y_test, Y_pred, target_names=["Bad", "Good"])
+
+shap.initjs()
+
+print(X.columns)
+explainer = shap.KernelExplainer(svc.predict_proba, X_scaled)
+shap_values = explainer.shap_values(X_scaled, check_additivity=False)
+print(shap_values)
+
+
+mean_abs_shap_values = np.mean(np.abs(shap_values), axis=0)
+mean_shap_values_df_bad = pd.DataFrame({'Feature': X.columns, 'MeanAbsSHAP_Bad': mean_abs_shap_values[:,0]})
+
+# Sort values in descending order
+mean_shap_values_df_bad = mean_shap_values_df_bad.sort_values(by='MeanAbsSHAP_Bad', ascending=False)
+
+print(f"These are the mean SHAP values (Class 0): {mean_shap_values_df_bad}.")
+
+# Create bar plot
+plt.rcParams['font.family'] = 'Times New Roman'
+plt.figure()
+plt.bar(mean_shap_values_df_bad['Feature'], mean_shap_values_df_bad['MeanAbsSHAP_Bad'], color='red')
+plt.ylabel('Mean |SHAP value| Gram-Positive SVC')
+plt.yticks()
+plt.xticks(rotation = 20, ha = "right")
+plt.gca().yaxis.set_major_formatter(FormatStrFormatter('%.3f'))
+ax = plt.gca()
+ax.spines['top'].set_edgecolor('black')
+ax.spines['top'].set_linewidth(4)
+ax.spines['right'].set_edgecolor('black')
+ax.spines['right'].set_linewidth(4)
+ax.spines['bottom'].set_edgecolor('black')
+ax.spines['bottom'].set_linewidth(4)
+ax.spines['left'].set_edgecolor('black')
+ax.spines['left'].set_linewidth(4)
+# Adjust layout and show plot
+plt.autoscale()
+plt.show()
+
+
+index_of_hydrophobic = data.columns.get_loc('hydrophobic_composition')
+index_of_cationic = data.columns.get_loc('cationic_composition')
+index_of_ratio = data.columns.get_loc('hydrophobic_to_cationic_ratio')
+index_of_net_charge = data.columns.get_loc('net_charge')
+index_of_aromatic_SVC = data.columns.get_loc('aromatic')
+index_of_cLogP_predicted = data.columns.get_loc('cLogP_predicted')
+index_of_DP = data.columns.get_loc('DP')
+
+Y_DP = shap_values[:,index_of_DP][:,0]
+X_DP = X['DP']
+
+Y_cLogP_predicted = shap_values[:,index_of_cLogP_predicted][:,0]
+X_cLogP_predicted = X['cLogP_predicted']
+
+Y_aromatic_SVC = shap_values[:,index_of_aromatic_SVC][:,0]
+X_aromatic_SVC = X['aromatic']
+
+Y_net_charge = shap_values[:,index_of_net_charge][:,0]
+X_net_charge = X['net_charge']
+
+Y_ratio = shap_values[:,index_of_ratio][:,0]
+X_ratio = X['hydrophobic_to_cationic_ratio']
+
+Y_hydrophobic = shap_values[:,index_of_hydrophobic][:,0]
+X_hydrophobic = X['hydrophobic_composition']
+
+Y_cationic = shap_values[:,index_of_cationic][:,0]
+X_cationic = X['cationic_composition']
+
+fig, axes = plt.subplots(nrows=2, ncols=3, figsize=(15, 10))
+# plot on each of the subplots
+
+axes[0, 0].scatter(X_net_charge, Y_net_charge,color = 'purple', s=10)
+axes[0, 0].set_xlabel('net_charge',fontsize=14)
+axes[0, 0].axhline(y=0, color='k', linestyle='dotted')
+axes[0, 0].axvline(x=30, color='k', linestyle='dotted')
+axes[0, 0].axvline(x=0, color='k', linestyle='dotted')
+axes[0, 0].tick_params(axis='y', labelsize=14)
+axes[0, 0].tick_params(axis='x', labelsize=14)
+axes[0, 0].set_xticks(np.arange(0, 100.1, 20))
+
+axes[0, 1].scatter(X_DP, Y_DP, color = 'purple', s=10)
+axes[0, 1].set_xlabel('DP',fontsize=14)
+axes[0, 1].axhline(y=0, color='k', linestyle='dotted')
+axes[0, 1].axvline(x=40, color='k', linestyle='dotted')
+axes[0, 1].axvline(x=20, color='k', linestyle='dotted')
+axes[0, 1].tick_params(axis='y', labelsize=14)
+axes[0, 1].tick_params(axis='x', labelsize=14)
+axes[0, 1].set_xticks(np.arange(20, 120.1, 20))
+
+axes[0, 2].scatter(X_cationic, Y_cationic,color = 'purple', s=10)
+axes[0, 2].set_xlabel('cationic_composition',fontsize=14)
+axes[0, 2].axhline(y=0, color='k', linestyle='dotted')
+axes[0, 2].axvline(x=0.6, color='k', linestyle='dotted')
+axes[0, 2].axvline(x=1, color='k', linestyle='dotted')
+axes[0, 2].tick_params(axis='y', labelsize=14)
+axes[0, 2].tick_params(axis='x', labelsize=14)
+axes[0, 2].set_xticks(np.arange(0, 1.01, 0.2))
+
+axes[1, 0].scatter(X_ratio, Y_ratio,color = 'purple', s=10)
+axes[1, 0].set_xlabel('hydrophobic_to_cationic_ratio',fontsize=14)
+axes[1, 0].axhline(y=0, color='k', linestyle='dotted')
+axes[1, 0].axvline(x=0.6, color='k', linestyle='dotted')
+axes[1, 0].axvline(x=1, color='k', linestyle='dotted')
+axes[1, 0].set_xticks(np.arange(0, 1.01, 0.2))
+axes[1, 0].tick_params(axis='y', labelsize=14)
+axes[1, 0].tick_params(axis='x', labelsize=14)
+
+axes[1, 1].scatter(X_hydrophobic, Y_hydrophobic, color = 'purple', s=10)
+axes[1, 1].set_xlabel('hydrophobic_composition',fontsize=14)
+axes[1, 1].axhline(y=0, color='k', linestyle='dotted')
+axes[1, 1].axvline(x=0.3, color='k', linestyle='dotted')
+axes[1, 1].axvline(x=0.5, color='k', linestyle='dotted')
+axes[1, 1].tick_params(axis='y', labelsize=14)
+axes[1, 1].tick_params(axis='x', labelsize=14)
+axes[1, 1].set_xticks(np.arange(0, 0.51, 0.1))
+
+axes[1, 2].scatter(X_cLogP_predicted, Y_cLogP_predicted,color = 'purple', s=10)
+axes[1, 2].set_xlabel('cLogP_predicted',fontsize=14)
+axes[1, 2].axhline(y=0, color='k', linestyle='dotted')
+axes[1, 2].tick_params(axis='y', labelsize=14)
+axes[1, 2].tick_params(axis='x', labelsize=14)
+axes[1, 2].set_xticks(np.arange(-4, 2.1, 1))
+
+# set overall title and adjust subplot spacing
+plt.subplots_adjust(hspace=0.4, wspace=0.3)
+#fig.text(0.5, 0.03, 'feature values', ha'center', va='center', fontsize=14)
+fig.text(0.03, 0.5, 'SVC_Recall_LOOCV SHAP values Class0: MIC>64', ha='center', va='center', rotation='vertical', fontsize=15)
+plt.show()
+
+fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(15, 10))
+# plot on each of the subplots
+
+axes[0].scatter(X_aromatic_KNN, Y_aromatic_KNN, color = 'xkcd:royal blue', s=10)
+axes[0].set_xlabel('aromatic_KNN',fontsize=14)
+axes[0].axhline(y=0, color='k', linestyle='dotted')
+axes[0].tick_params(axis='y', labelsize=14)
+axes[0].tick_params(axis='x', labelsize=14)
+axes[0].set_xticks(np.arange(0, 1.01, 0.5))
+
+axes[1].scatter(X_aromatic_SVC, Y_aromatic_SVC, color = 'purple', s=10)
+axes[1].set_xlabel('aromatic_SVC',fontsize=14)
+axes[1].axhline(y=0, color='k', linestyle='dotted')
+axes[1].tick_params(axis='y', labelsize=14)
+axes[1].tick_params(axis='x', labelsize=14)
+axes[1].set_xticks(np.arange(0, 1.01, 0.5))
+
+#fig.text(0.5, 0.03, 'feature values', ha'center', va='center', fontsize=14)
+fig.text(0.05, 0.5, 'Aromatic Feature Comparison: KNN and SVC (LOOCV) \nSHAP values Class0: MIC>64', ha='center', va='center', rotation='vertical', fontsize=14)
+plt.subplots_adjust(hspace=0.3, wspace=0.3)
+plt.autoscale()
+plt.show()
